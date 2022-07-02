@@ -5,8 +5,6 @@ pragma solidity ^0.8.15;
 import "@openzeppelin-contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin-contracts/utils/cryptography/ECDSA.sol";
 
-error BountyIsTooSmall();
-
 contract RunChallenger is ReentrancyGuard {
     using ECDSA for bytes32;
 
@@ -18,7 +16,6 @@ contract RunChallenger is ReentrancyGuard {
         uint speed;            // Meters/Seconds
         uint issuedAt;         // Seconds since midnight, 1 Jan 1970
         bool complete;
-        bool stored;
     }
 
     // Storage Constants
@@ -46,14 +43,12 @@ contract RunChallenger is ReentrancyGuard {
         uint _issuedAt, 
         string calldata _challengeId
     ) public payable {
+        require(_challengee != address(0), "_challengee is invalid.");
+        require(challengeLookup[_challengeId].challengee == address(0), "_challengeId is invalid.");
+        require(msg.value >= minimumBounty, "Bounty is too small.");
+
         uint scaledServiceFee = scaledTakeRate * msg.value;
         uint serviceFee = scaledServiceFee / 100;
-
-        require(challengeLookup[_challengeId].stored == false);
-        
-        if (msg.value < minimumBounty) {
-            revert BountyIsTooSmall();
-        }
 
         Challenge memory newChallenge = Challenge({
             challenger: msg.sender,
@@ -62,8 +57,7 @@ contract RunChallenger is ReentrancyGuard {
             distance: _distance,                // Meters
             speed: _speed,                      // Meters/Seconds
             issuedAt: _issuedAt,                // Seconds
-            complete: false,
-            stored: true
+            complete: false
         });
 
         // Add challenge to mapping
@@ -79,19 +73,19 @@ contract RunChallenger is ReentrancyGuard {
 
     function claimBounty(string calldata _challengeId, bytes32 _hashedMessage, bytes calldata _signature) public nonReentrant {
         // Make sure that the signature was signed by the official signer account
-        require(ECDSA.recover(_hashedMessage, _signature) == signer);
+        require(ECDSA.recover(_hashedMessage, _signature) == signer, "Signer not authorized.");
 
         // Make sure that the signature has not been used before
-        require(signatureLookup[_signature] == false);
+        require(signatureLookup[_signature] == false, "Signature was used before.");
 
         // To prevent repetitive code, we can abstract challengeLookup[challengeId] into a "storage" variable of type Challenge
         Challenge storage challenge = challengeLookup[_challengeId];
 
         // Only the challengee of this challenge can claim the bounty
-        require(msg.sender == challenge.challengee);
+        require(msg.sender == challenge.challengee, "Sender not authorized.");
 
         // Make sure the challenge has not already been marked as complete
-        require(challenge.complete == false);
+        require(challenge.complete == false, "Challenge already complete.");
 
         // Mark the challenge as complete
         challenge.complete = true;
