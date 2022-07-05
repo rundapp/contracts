@@ -144,7 +144,7 @@ contract TestClaimBounty is Test {
     function testChallengeeMarkedAsComplete() public {
         vm.prank(testChallengee);
         runChallenger.claimBounty(testChallengeId, testHashedMessage, testValidSignature);
-        (address challenger, address challengee, uint bounty, uint distance, uint speed, uint issuedAt, bool complete) = runChallenger.challengeLookup(testChallengeId);
+        ( , , , , , , bool complete) = runChallenger.challengeLookup(testChallengeId);
         assertTrue(complete);
     }
 
