@@ -9,6 +9,7 @@ contract RunChallenger is ReentrancyGuard {
     using ECDSA for bytes32;
 
     struct Challenge {
+        string challengeId;
         address challenger;
         address payable challengee;
         uint bounty;           // Wei
@@ -19,38 +20,47 @@ contract RunChallenger is ReentrancyGuard {
     }
 
     // Storage Constants
-    uint public constant minimumBounty = 0.001 ether;  // Wei (0.001 ETH)
-    uint public constant scaledTakeRate = 4;                // 4% of bounty amount
+    uint public constant minimumBounty = 4 ether;  // 4 MATIC (~$2.50)
+    uint public constant scaledTakeRate = 4;           // 4% of bounty amount
+    uint public constant minimumDistance = 400;
 
     // Storage Variables
     address payable public admin;
     address public signer;   
     Challenge[] private challenges; 
     mapping(bytes => bool) private signatureLookup;
-    mapping(string => Challenge) public challengeLookup; 
+    mapping(string => uint) public challengesArrayIndexLookup;
+    mapping(string => Challenge) public challengeLookup;
     
-
     constructor(address signerAccount) {
         admin = payable(msg.sender);
         signer = signerAccount;
     }
     
-    // TODO: Need to scale up distance and speed
     function issueChallenge(
         address payable _challengee, 
         uint _distance, 
         uint _speed, 
-        uint _issuedAt, 
+        uint _issuedAt,
         string calldata _challengeId
     ) public payable {
+        // Challengee cannot have an empty address
         require(_challengee != address(0), "_challengee is invalid.");
+
+        // Cannot update existing challenge
         require(challengeLookup[_challengeId].challengee == address(0), "_challengeId is invalid.");
+        
+        // Must send a at least the minimum bounty value
         require(msg.value >= minimumBounty, "Bounty is too small.");
+
+        // Must send a at least the minimum bounty value
+        require(_distance >= minimumDistance, "Distance is too small.");
 
         uint scaledServiceFee = scaledTakeRate * msg.value;
         uint serviceFee = scaledServiceFee / 100;
 
         Challenge memory newChallenge = Challenge({
+            challengeId: _challengeId,
             challenger: msg.sender,
             challengee: _challengee,
             bounty: (msg.value - serviceFee),  // Wei
@@ -62,9 +72,12 @@ contract RunChallenger is ReentrancyGuard {
 
         // Add challenge to mapping
         challengeLookup[_challengeId] = newChallenge;
-        
+          
         // Add challenge to array
         challenges.push(newChallenge);
+
+        // Add index this challenge is stored at in challenges array
+        challengesArrayIndexLookup[_challengeId] = challenges.length - 1;
 
         // Transfer serviceFee to admin address
         admin.transfer(serviceFee);
@@ -78,7 +91,7 @@ contract RunChallenger is ReentrancyGuard {
         // Make sure that the signature has not been used before
         require(signatureLookup[_signature] == false, "Signature was used before.");
 
-        // To prevent repetitive code, we can abstract challengeLookup[challengeId] into a "storage" variable of type Challenge
+        // Lookup challenge and store as a "storage" variable, as it will be updated
         Challenge storage challenge = challengeLookup[_challengeId];
 
         // Only the challengee of this challenge can claim the bounty
@@ -87,8 +100,12 @@ contract RunChallenger is ReentrancyGuard {
         // Make sure the challenge has not already been marked as complete
         require(challenge.complete == false, "Challenge already complete.");
 
-        // Mark the challenge as complete
+        // Mark the challenge as complete in mapping
         challenge.complete = true;
+
+        // Mark the challenge as complete in array
+        Challenge storage challengeInArray = challenges[challengesArrayIndexLookup[_challengeId]];
+        challengeInArray.complete = true;
 
         // Add signature in mapping so that it cannot be used again
         signatureLookup[_signature] = true;

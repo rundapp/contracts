@@ -38,7 +38,7 @@ contract TestIssueChallenge is Test {
     receive() external payable {}
 
     function testAdminGetsCut(uint96 amount) public {
-        vm.assume(amount > 0.001 ether);
+        vm.assume(amount > 4 ether);
         uint256 adminPreBalance = address(admin).balance;
         runChallenger.issueChallenge{value: amount}(testChallengee, testDistance, testPace, testIssuedAt, testChallengeId);
         uint256 adminPostBalance = address(admin).balance;
@@ -50,21 +50,27 @@ contract TestIssueChallenge is Test {
         runChallenger.issueChallenge{value: 1000}(testChallengee, testDistance, testPace, testIssuedAt, testChallengeId);
     }
 
+    function testDistanceIsTooSmall() public {
+        vm.expectRevert("Distance is too small.");
+        runChallenger.issueChallenge{value: 5 ether}(testChallengee, 399, testPace, testIssuedAt, testChallengeId);
+    }
+
     function testCannotDuplicateChallengeId() public {
-        runChallenger.issueChallenge{value: 1 ether}(testChallengee, testDistance, testPace, testIssuedAt, testChallengeId);
+        runChallenger.issueChallenge{value: 5 ether}(testChallengee, testDistance, testPace, testIssuedAt, testChallengeId);
         vm.expectRevert("_challengeId is invalid.");
-        runChallenger.issueChallenge{value: 1 ether}(testChallengee, testDistance, testPace, testIssuedAt, testChallengeId);
+        runChallenger.issueChallenge{value: 5 ether}(testChallengee, testDistance, testPace, testIssuedAt, testChallengeId);
     }
 
     function testCannotHaveZeroAddressChallengee() public {
         vm.expectRevert("_challengee is invalid.");
-        runChallenger.issueChallenge{value: 1 ether}(payable(0), testDistance, testPace, testIssuedAt, testChallengeId);
+        runChallenger.issueChallenge{value: 5 ether}(payable(0), testDistance, testPace, testIssuedAt, testChallengeId);
     }
 
     function testChallengeAddedToMapping(uint96 amount) public {
-        vm.assume(amount > 0.001 ether);
+        vm.assume(amount > 4 ether);
         runChallenger.issueChallenge{value: amount}(testChallengee, testDistance, testPace, testIssuedAt, testChallengeId);
-        (address challenger, address challengee, uint bounty, uint distance, uint speed, uint issuedAt, bool complete) = runChallenger.challengeLookup(testChallengeId);
+        (string memory challengeId, address challenger, address challengee, uint bounty, uint distance, uint speed, uint issuedAt, bool complete) = runChallenger.challengeLookup(testChallengeId);
+        assertEq(challengeId, testChallengeId);
         assertEq(challenger, address(this));
         assertEq(challengee, testChallengee);
         assertEq(bounty, amount - (scaledTakeRate * amount)/(10**18));
@@ -75,9 +81,16 @@ contract TestIssueChallenge is Test {
     }
 
     function testChallengeAddedToArray() public {
-        runChallenger.issueChallenge{value: 1 ether}(testChallengee, testDistance, testPace, testIssuedAt, testChallengeId);
+        runChallenger.issueChallenge{value: 5 ether}(testChallengee, testDistance, testPace, testIssuedAt, testChallengeId);
         RunChallenger.Challenge[] memory challenges = runChallenger.getChallenges();
         assertEq(challenges.length, 1);
+    }
+
+    function testArrayIndexAddedToMapping() public {
+        runChallenger.issueChallenge{value: 5 ether}(testChallengee, testDistance, testPace, testIssuedAt, testChallengeId);
+        RunChallenger.Challenge[] memory challenges = runChallenger.getChallenges();
+        uint challengeIndex = runChallenger.challengesArrayIndexLookup(testChallengeId);
+        assertEq(challengeIndex, challenges.length - 1);
     }
 }
 
@@ -108,7 +121,7 @@ contract TestClaimBounty is Test {
         admin = new Admin();
         vm.prank(address(admin));
         runChallenger = new RunChallenger(testSigner);
-        runChallenger.issueChallenge{value: 1 ether}(testChallengee, testDistance, testPace, testIssuedAt, testChallengeId);
+        runChallenger.issueChallenge{value: 5 ether}(testChallengee, testDistance, testPace, testIssuedAt, testChallengeId);
     }
 
     function testCannotClaimWithWrongSignature() public {
@@ -141,21 +154,29 @@ contract TestClaimBounty is Test {
         runChallenger.claimBounty(testChallengeId, testSecondHashedMessage, testSecondValidSignature);
     }
 
-    function testChallengeeMarkedAsComplete() public {
+    function testChallengeeMarkedAsCompleteInMapping() public {
         vm.prank(testChallengee);
         runChallenger.claimBounty(testChallengeId, testHashedMessage, testValidSignature);
-        (address challenger, address challengee, uint bounty, uint distance, uint speed, uint issuedAt, bool complete) = runChallenger.challengeLookup(testChallengeId);
+        (, , , , , , , bool complete) = runChallenger.challengeLookup(testChallengeId);
         assertTrue(complete);
+    }
+
+    function testChallengeeMarkedAsCompleteInArray() public {
+        vm.prank(testChallengee);
+        runChallenger.claimBounty(testChallengeId, testHashedMessage, testValidSignature);
+        uint challengeIndex = runChallenger.challengesArrayIndexLookup(testChallengeId);
+        RunChallenger.Challenge[] memory challenges = runChallenger.getChallenges();
+        assertTrue(challenges[challengeIndex].complete);
     }
 
     function testChallengeeReceivedBounty() public {
         // 1. Create challenge (with admin as the challengee)
-        runChallenger.issueChallenge{value: 1 ether}(payable(admin), testDistance, testPace, testIssuedAt, testChallengeId2);
+        runChallenger.issueChallenge{value: 5 ether}(payable(admin), testDistance, testPace, testIssuedAt, testChallengeId2);
         // 2. Claim Bounty
         uint256 adminPreBalance = address(admin).balance;
         vm.prank(address(admin));
         runChallenger.claimBounty(testChallengeId2, testHashedMessage, testValidSignature);
         uint256 adminPostBalance = address(admin).balance;
-        assertEq(adminPreBalance + (1 ether - (scaledTakeRate * 1 ether)/(10**18)), adminPostBalance);
+        assertEq(adminPreBalance + (5 ether - (scaledTakeRate * 5 ether)/(10**18)), adminPostBalance);
     }
 }
