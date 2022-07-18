@@ -21,8 +21,8 @@ contract TestIssueChallenge is Test {
 
     // Challenge Issuance Variables
     address payable testChallengee = payable(0xdF197C452b63227ACfEbAb8dcCf58E6E5f8AD02e);
-    uint testDistance = 1000;
-    uint testPace = 3;
+    uint testDistance = 100000;    // Centimeters
+    uint testPace = 300;           // Centimeters/Second
     uint testIssuedAt = 1656710502;
     string constant testChallengeId = "475f0319-ce6e-4c66-a617-8894a5f1bb5e";
 
@@ -52,7 +52,12 @@ contract TestIssueChallenge is Test {
 
     function testDistanceIsTooSmall() public {
         vm.expectRevert("Distance is too small.");
-        runChallenger.issueChallenge{value: 5 ether}(testChallengee, 399, testPace, testIssuedAt, testChallengeId);
+        runChallenger.issueChallenge{value: 5 ether}(testChallengee, 39999, testPace, testIssuedAt, testChallengeId);
+    }
+
+    function testSpeedIsTooFast() public {
+        vm.expectRevert("Speed is too fast.");
+        runChallenger.issueChallenge{value: 5 ether}(testChallengee, testDistance, 1201, testIssuedAt, testChallengeId);
     }
 
     function testCannotDuplicateChallengeId() public {
@@ -105,8 +110,8 @@ contract TestClaimBounty is Test {
 
     // Challenge Issuance Variables
     address payable testChallengee = payable(0xdF197C452b63227ACfEbAb8dcCf58E6E5f8AD02e);
-    uint testDistance = 1000;
-    uint testPace = 3;
+    uint testDistance = 100000;     // Centimeters
+    uint testPace = 300;            // Centimeters/Second
     uint testIssuedAt = 1656710502;
     string constant testChallengeId = "475f0319-ce6e-4c66-a617-8894a5f1bb5e";
     string constant testChallengeId2 = "eb6fb282-2339-413b-bbba-832ff65a796f";

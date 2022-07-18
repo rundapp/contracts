@@ -13,16 +13,17 @@ contract RunChallenger is ReentrancyGuard {
         address challenger;
         address payable challengee;
         uint bounty;           // Wei
-        uint distance;         // Meters
-        uint speed;            // Meters/Seconds
+        uint distance;         // Centimeters
+        uint speed;            // Centimeters/Second
         uint issuedAt;         // Seconds since midnight, 1 Jan 1970
         bool complete;
     }
 
     // Storage Constants
-    uint public constant minimumBounty = 4 ether;  // 4 MATIC (~$2.50)
-    uint public constant scaledTakeRate = 4;           // 4% of bounty amount
-    uint public constant minimumDistance = 400;
+    uint public constant minimumBounty = 4 ether;      // 4 MATIC (~$2.50)
+    uint public constant maximumSpeed = 1200;          // Centimeters/Second
+    uint public constant scaledTakeRate = 4;           // 4% of bounty
+    uint public constant minimumDistance = 40000;      // Centimeters
 
     // Storage Variables
     address payable public admin;
@@ -50,11 +51,14 @@ contract RunChallenger is ReentrancyGuard {
         // Cannot update existing challenge
         require(challengeLookup[_challengeId].challengee == address(0), "_challengeId is invalid.");
         
-        // Must send a at least the minimum bounty value
+        // Must send at least the minimum bounty value
         require(msg.value >= minimumBounty, "Bounty is too small.");
 
-        // Must send a at least the minimum bounty value
+        // Must send a distance greater than minimum distance
         require(_distance >= minimumDistance, "Distance is too small.");
+
+        // Must send a speed less than maxiumum speed
+        require(_speed <= maximumSpeed, "Speed is too fast.");
 
         uint scaledServiceFee = scaledTakeRate * msg.value;
         uint serviceFee = scaledServiceFee / 100;
