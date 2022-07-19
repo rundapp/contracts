@@ -60,14 +60,13 @@ contract RunChallenger is ReentrancyGuard {
         // Must send a speed less than maxiumum speed
         require(_speed <= maximumSpeed, "Speed is too fast.");
 
-        uint scaledServiceFee = scaledTakeRate * msg.value;
-        uint serviceFee = scaledServiceFee / 100;
+        uint serviceFee = (scaledTakeRate * msg.value) / 100;
 
         Challenge memory newChallenge = Challenge({
             challengeId: _challengeId,
             challenger: msg.sender,
             challengee: _challengee,
-            bounty: (msg.value - serviceFee),  // Wei
+            bounty: (msg.value - serviceFee),   // Wei
             distance: _distance,                // Meters
             speed: _speed,                      // Meters/Seconds
             issuedAt: _issuedAt,                // Seconds

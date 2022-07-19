@@ -1,2 +1,17 @@
+# Environments
+.venv/
+venv/
+.env
+.env.*
+venv
+env/
+ENV/
+.venv
+# Environment Variable Files
+env_file.env
+*.env
+.secrets.*
+
+# Foundry
 cache/
 out/
